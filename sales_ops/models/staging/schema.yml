@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_hubspot_deals
+    description: "Cleaned and renamed deals from HubSpot CRM RAW layer"
+    columns:
+      - name: deal_id
+        description: "Unique deal identifier from HubSpot"
+        data_tests:
+          - unique
+          - not_null
+      - name: deal_name
+        description: "Name of the deal"
+        data_tests:
+          - not_null
+      - name: deal_amount
+        description: "Deal value in USD"
+      - name: deal_stage
+        description: "Current pipeline stage"
+      - name: close_date
+        description: "Expected or actual close date"
+
+  - name: stg_hubspot_contacts
+    description: "Cleaned and renamed contacts from HubSpot CRM RAW layer"
+    columns:
+      - name: contact_id
+        description: "Unique contact identifier from HubSpot"
+        data_tests:
+          - unique
+          - not_null
+      - name: email
+        description: "Contact email address"
