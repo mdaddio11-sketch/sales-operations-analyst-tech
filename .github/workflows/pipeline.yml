@@ -1,0 +1,65 @@
+name: HubSpot to Snowflake Pipeline
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # runs daily at 6am UTC
+  workflow_dispatch:       # allows manual trigger
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run HubSpot extraction
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+        run: python extract/hubspot_extract.py
+
+      - name: Install dbt
+        run: pip install dbt-snowflake
+
+      - name: Run dbt models
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << PROFILE
+          sales_ops:
+            target: dev
+            outputs:
+              dev:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}
+                schema: STAGING
+                threads: 1
+          PROFILE
+          dbt run --project-dir sales_ops
+          dbt test --project-dir sales_ops
