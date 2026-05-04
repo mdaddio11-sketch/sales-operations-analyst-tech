@@ -113,3 +113,24 @@ When answering knowledge base questions, prioritize the wiki pages (synthesized)
 - **Job posting:** HPE Business Analyst, Sales Operations (`docs/job-posting.pdf`)
 - **Course:** ISBA 4715 Analytics Engineering
 - **Submission repo:** Public GitHub repo (this repo)
+
+
+## Knowledge Base
+
+This repo contains a knowledge base in the knowledge/ folder about HPE (Hewlett Packard Enterprise).
+
+### Structure
+- knowledge/raw/ - 15 raw source files (press releases and company research)
+- knowledge/wiki/ - synthesized wiki pages generated from raw sources
+- knowledge/index.md - index of all wiki pages
+
+### How to Query
+To answer questions about HPE, first check knowledge/wiki/ for synthesized information.
+For specific details, read the relevant files in knowledge/raw/.
+
+Example questions this knowledge base can answer:
+- What are HPEs main products and segments?
+- What is the status of the Juniper Networks acquisition?
+- What does the HPE sales pipeline look like?
+- Who are HPEs main competitors?
+- What is HPEs AI strategy?
