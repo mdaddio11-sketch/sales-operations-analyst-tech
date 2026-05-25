@@ -51,3 +51,13 @@ size: 16:9
 ---
 
 ## Tech Stack
+
+**Source 1:** HubSpot CRM API → Python → Snowflake RAW → dbt → Snowflake MART
+
+**Source 2:** HPE Press Releases (web scrape) → Snowflake RAW → Knowledge Base
+
+**Orchestration:** GitHub Actions (daily schedule)
+
+**Dashboard:** Streamlit Community Cloud (public URL)
+
+> This project directly mirrors HPE Sales Ops responsibilities: SQL analysis, pipeline automation, dashboard development, and company research.
