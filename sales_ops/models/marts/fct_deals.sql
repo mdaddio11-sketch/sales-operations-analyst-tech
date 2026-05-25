@@ -28,7 +28,14 @@ final as (
             else 'SMB'
         end as deal_size_tier,
 
-        datediff('day', created_at, close_date) as days_to_close
+        -- For open deals: days since creation. For closed deals: absolute deal duration.
+        -- ABS handles backdated seed data where close_date < created_at.
+        case
+            when deal_stage in ('closedwon', 'closedlost')
+                then abs(datediff('day', created_at, close_date))
+            else
+                datediff('day', created_at, current_date)
+        end as days_to_close
 
     from deals
 )
