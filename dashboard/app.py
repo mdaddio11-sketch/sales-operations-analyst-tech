@@ -14,6 +14,11 @@ CLOSED_STAGES = ["Closed Won", "Closed Lost", "Gone Cold"]
 OPEN_STAGES   = ["Qualified", "Proposal / Quote", "Priority", "Expected Close", "Verbal Confirmation", "Backlog"]
 HPE_BLUE      = "#0096D6"
 
+def fmt(x):
+    if x >= 1e6: return f"${x/1e6:.1f}M"
+    if x >= 1e3: return f"${x/1e3:.0f}K"
+    return f"${x:.0f}"
+
 
 @st.cache_resource
 def get_connection():
@@ -84,10 +89,10 @@ weighted_pipe = (deals["DEAL_AMOUNT"] * deals["STAGE_PROBABILITY"]).sum()
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Total Deals", f"{len(deals):,}")
-c2.metric("Closed Won Revenue", f"${won_revenue:,.0f}")
+c2.metric("Closed Won Revenue", fmt(won_revenue))
 c3.metric("Win Rate", f"{win_rate:.1f}%")
-c4.metric("Open Pipeline Value", f"${open_pipeline:,.0f}")
-c5.metric("Weighted Pipeline", f"${weighted_pipe:,.0f}")
+c4.metric("Open Pipeline Value", fmt(open_pipeline))
+c5.metric("Weighted Pipeline", fmt(weighted_pipe))
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +115,11 @@ team_perf = (
     .merge(won_by_team, on="SALES_TEAM", how="left")
     .fillna({"ACTUAL": 0})
 )
-team_perf["PCT"] = (team_perf["ACTUAL"] / team_perf["TEAM_ANNUAL_TARGET"] * 100).round(1)
+team_perf["TEAM_ANNUAL_TARGET"] = pd.to_numeric(team_perf["TEAM_ANNUAL_TARGET"], errors="coerce").fillna(0)
+team_perf["PCT"] = team_perf.apply(
+    lambda r: round(r["ACTUAL"] / r["TEAM_ANNUAL_TARGET"] * 100, 1) if r["TEAM_ANNUAL_TARGET"] > 0 else 0,
+    axis=1,
+)
 
 won_by_rep = (
     deals[deals["ORIGINAL_STAGE"] == "Closed Won"]
@@ -122,7 +131,11 @@ rep_perf = (
     .merge(won_by_rep, on="OPPORTUNITY_OWNER", how="left")
     .fillna({"ACTUAL": 0})
 )
-rep_perf["PCT"] = (rep_perf["ACTUAL"] / rep_perf["ANNUAL_TARGET"] * 100).round(1)
+rep_perf["ANNUAL_TARGET"] = pd.to_numeric(rep_perf["ANNUAL_TARGET"], errors="coerce").fillna(0)
+rep_perf["PCT"] = rep_perf.apply(
+    lambda r: round(r["ACTUAL"] / r["ANNUAL_TARGET"] * 100, 1) if r["ANNUAL_TARGET"] > 0 else 0,
+    axis=1,
+)
 
 col_left, col_right = st.columns(2)
 
