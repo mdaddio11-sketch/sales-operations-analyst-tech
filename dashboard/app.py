@@ -149,20 +149,33 @@ with col_left:
     fig_team.add_trace(go.Bar(
         y=team_perf["SALES_TEAM"], x=team_perf["ACTUAL"],
         name="Actual", orientation="h", marker_color=HPE_BLUE,
-        text=[f"${v:,.0f}  ({p:.1f}%)" for v, p in zip(team_perf["ACTUAL"], team_perf["PCT"])],
-        textposition="outside",
     ))
+    x_max = team_perf["TEAM_ANNUAL_TARGET"].max() if len(team_perf) > 0 else 1
+    annotations = [
+        dict(
+            x=row["TEAM_ANNUAL_TARGET"] + x_max * 0.02,
+            y=row["SALES_TEAM"],
+            text=f"${row['ACTUAL']:,.0f} ({row['PCT']:.1f}%)",
+            showarrow=False, xanchor="left", font=dict(size=12),
+        )
+        for _, row in team_perf.iterrows()
+    ]
     fig_team.update_layout(
         barmode="overlay", height=300,
-        margin=dict(l=0, r=20, t=10, b=0),
+        margin=dict(l=0, r=200, t=10, b=0),
         legend=dict(orientation="h", y=-0.25),
         xaxis_title="Revenue ($)",
+        annotations=annotations,
     )
     st.plotly_chart(fig_team, use_container_width=True)
 
 with col_right:
     st.markdown("**Rep Performance vs Annual Target**")
-    for _, row in rep_perf.sort_values(["SALES_TEAM", "OPPORTUNITY_OWNER"]).iterrows():
+    sort_by = st.radio("Sort by", ["Total Closed Won", "% of Target"], horizontal=True, key="rep_sort")
+    sort_col = "ACTUAL" if sort_by == "Total Closed Won" else "PCT"
+    sorted_reps = rep_perf.sort_values(sort_col, ascending=False)
+
+    for _, row in sorted_reps.iterrows():
         pct_clamped = min(float(row["PCT"]) / 100, 1.0)
         rcol1, rcol2 = st.columns([4, 3])
         with rcol1:
@@ -172,6 +185,15 @@ with col_right:
         with rcol2:
             st.markdown(f"<div style='padding-top:22px; font-size:13px'>${row['ACTUAL']:,.0f} &nbsp;·&nbsp; {row['PCT']:.1f}%</div>",
                         unsafe_allow_html=True)
+        rep_name = row["OPPORTUNITY_OWNER"]
+        rep_won = deals[
+            (deals["OPPORTUNITY_OWNER"] == rep_name) &
+            (deals["ORIGINAL_STAGE"] == "Closed Won")
+        ][["DEAL_NAME", "ACCOUNT_NAME", "DEAL_AMOUNT", "CLOSE_DATE"]].copy()
+        rep_won["DEAL_AMOUNT"] = rep_won["DEAL_AMOUNT"].apply(lambda x: f"${x:,.0f}")
+        rep_won.columns = ["Opportunity", "Account", "Amount", "Close Date"]
+        with st.expander(f"View {rep_name}'s closed deals ({len(rep_won)})"):
+            st.dataframe(rep_won.sort_values("Close Date"), use_container_width=True, hide_index=True)
 
 st.markdown("---")
 
@@ -184,14 +206,26 @@ col_left, col_right = st.columns(2)
 
 with col_left:
     st.markdown("**Deal Count by Team & Stage**")
-    stage_team = (
-        deals.groupby(["SALES_TEAM", "ORIGINAL_STAGE"])
-        .size().reset_index(name="COUNT")
+    drill_view = st.radio(
+        "View", ["All Teams", "Enterprise", "Public Sector", "SMB"],
+        horizontal=True, key="pipeline_drill",
     )
+    if drill_view == "All Teams":
+        stage_data = deals.groupby(["SALES_TEAM", "ORIGINAL_STAGE"]).size().reset_index(name="COUNT")
+        x_col = "SALES_TEAM"
+        x_label = "Sales Team"
+    else:
+        stage_data = (
+            deals[deals["SALES_TEAM"] == drill_view]
+            .groupby(["OPPORTUNITY_OWNER", "ORIGINAL_STAGE"])
+            .size().reset_index(name="COUNT")
+        )
+        x_col = "OPPORTUNITY_OWNER"
+        x_label = "Rep"
     fig_stack = px.bar(
-        stage_team, x="SALES_TEAM", y="COUNT", color="ORIGINAL_STAGE",
+        stage_data, x=x_col, y="COUNT", color="ORIGINAL_STAGE",
         barmode="stack", height=380,
-        labels={"COUNT": "Deal Count", "SALES_TEAM": "Sales Team", "ORIGINAL_STAGE": "Stage"},
+        labels={"COUNT": "Deal Count", x_col: x_label, "ORIGINAL_STAGE": "Stage"},
     )
     fig_stack.update_layout(
         margin=dict(l=0, r=0, t=10, b=0),
@@ -209,11 +243,14 @@ with col_right:
     fig_open = px.bar(
         open_by_stage, y="ORIGINAL_STAGE", x="DEAL_AMOUNT",
         orientation="h", height=380,
-        text=open_by_stage["DEAL_AMOUNT"].apply(lambda x: f"${x:,.0f}"),
         labels={"DEAL_AMOUNT": "Pipeline Value ($)", "ORIGINAL_STAGE": "Stage"},
     )
-    fig_open.update_traces(marker_color=HPE_BLUE, textposition="outside")
-    fig_open.update_layout(margin=dict(l=0, r=60, t=10, b=0))
+    fig_open.update_traces(
+        marker_color=HPE_BLUE,
+        texttemplate="$%{x:,.0f}",
+        textposition="outside",
+    )
+    fig_open.update_layout(margin=dict(l=0, r=150, t=10, b=0))
     st.plotly_chart(fig_open, use_container_width=True)
 
 st.markdown("---")
