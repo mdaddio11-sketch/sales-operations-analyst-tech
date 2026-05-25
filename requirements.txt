@@ -3,3 +3,6 @@ snowflake-connector-python
 python-dotenv
 beautifulsoup4
 lxml
+plotly
+pandas
+streamlit
