@@ -22,4 +22,12 @@ clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
 
+seeds:
+  sales_ops:
+    targets:
+      +schema: RAW
+      +column_types:
+        annual_target: numeric(12, 2)
+        team_annual_target: numeric(12, 2)
+
 
