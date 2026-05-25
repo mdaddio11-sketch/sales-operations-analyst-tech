@@ -1,12 +1,19 @@
 import os
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import snowflake.connector
 from dotenv import load_dotenv
 
 load_dotenv()
 
 st.set_page_config(page_title="HPE Sales Operations Dashboard", layout="wide")
+
+CLOSED_STAGES = ["Closed Won", "Closed Lost", "Gone Cold"]
+OPEN_STAGES   = ["Qualified", "Proposal / Quote", "Priority", "Expected Close", "Verbal Confirmation", "Backlog"]
+HPE_BLUE      = "#0096D6"
+
 
 @st.cache_resource
 def get_connection():
@@ -16,69 +23,273 @@ def get_connection():
         account=os.getenv("SNOWFLAKE_ACCOUNT"),
         warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
         database=os.getenv("SNOWFLAKE_DATABASE"),
-        schema="STAGING"
+        role=os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
+        schema="STAGING",
     )
 
-@st.cache_data
-def load_deals():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM FCT_DEALS")
-    rows = cur.fetchall()
-    cols = [d[0].upper() for d in cur.description]
-    return pd.DataFrame(rows, columns=cols)
 
 @st.cache_data
-def load_stages():
+def load_data():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM DIM_PIPELINE_STAGE")
-    rows = cur.fetchall()
-    cols = [d[0].upper() for d in cur.description]
-    return pd.DataFrame(rows, columns=cols)
+    cur.execute("SELECT * FROM STAGING.FCT_DEALS")
+    deals = pd.DataFrame(cur.fetchall(), columns=[d[0] for d in cur.description])
+    cur.execute("SELECT * FROM RAW.TARGETS")
+    targets = pd.DataFrame(cur.fetchall(), columns=[d[0] for d in cur.description])
+    cur.close()
+    return deals, targets
 
-deals = load_deals()
-stages = load_stages()
 
-st.title("HPE Sales Operations Dashboard")
-st.caption("Business Analyst, Sales Operations - Hewlett Packard Enterprise")
+deals_raw, targets = load_data()
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 st.sidebar.header("Filters")
-all_stages = ["All"] + sorted(deals["DEAL_STAGE"].dropna().unique().tolist())
-selected_stage = st.sidebar.selectbox("Pipeline Stage", all_stages)
 
-if selected_stage != "All":
-    deals = deals[deals["DEAL_STAGE"] == selected_stage]
+teams = ["All"] + sorted(deals_raw["SALES_TEAM"].dropna().unique().tolist())
+selected_team = st.sidebar.selectbox("Sales Team", teams)
 
-st.subheader("Descriptive Analytics - What Happened?")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total Deals", len(deals))
-col2.metric("Total Pipeline Value", "$" + f"{deals['DEAL_AMOUNT'].sum():,.0f}")
-col3.metric("Avg Deal Size", "$" + f"{deals['DEAL_AMOUNT'].mean():,.0f}")
-col4.metric("Avg Days to Close", f"{deals['DAYS_TO_CLOSE'].mean():.0f} days")
+if selected_team != "All":
+    owner_pool = deals_raw[deals_raw["SALES_TEAM"] == selected_team]["OPPORTUNITY_OWNER"].dropna().unique()
+else:
+    owner_pool = deals_raw["OPPORTUNITY_OWNER"].dropna().unique()
+selected_owner = st.sidebar.selectbox("Opportunity Owner", ["All"] + sorted(owner_pool.tolist()))
+
+periods = ["All"] + sorted(deals_raw["FISCAL_PERIOD"].dropna().unique().tolist())
+selected_period = st.sidebar.selectbox("Fiscal Period", periods)
+
+# Apply filters
+deals = deals_raw.copy()
+if selected_team  != "All": deals = deals[deals["SALES_TEAM"]       == selected_team]
+if selected_owner != "All": deals = deals[deals["OPPORTUNITY_OWNER"] == selected_owner]
+if selected_period != "All": deals = deals[deals["FISCAL_PERIOD"]    == selected_period]
+
+# ── Header ────────────────────────────────────────────────────────────────────
+st.title("HPE Sales Operations Dashboard")
+st.caption("Business Analyst, Sales Operations — Hewlett Packard Enterprise")
+st.markdown("---")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 1 — Pipeline Overview
+# ─────────────────────────────────────────────────────────────────────────────
+st.subheader("Pipeline Overview")
+
+won_deals  = deals[deals["ORIGINAL_STAGE"] == "Closed Won"]
+terminal   = deals[deals["ORIGINAL_STAGE"].isin(["Closed Won", "Closed Lost", "Gone Cold"])]
+open_deals = deals[~deals["ORIGINAL_STAGE"].isin(CLOSED_STAGES)]
+
+won_revenue   = won_deals["DEAL_AMOUNT"].sum()
+win_rate      = len(won_deals) / len(terminal) * 100 if len(terminal) > 0 else 0
+open_pipeline = open_deals["DEAL_AMOUNT"].sum()
+weighted_pipe = (deals["DEAL_AMOUNT"] * deals["STAGE_PROBABILITY"]).sum()
+
+c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("Total Deals", f"{len(deals):,}")
+c2.metric("Closed Won Revenue", f"${won_revenue:,.0f}")
+c3.metric("Win Rate", f"{win_rate:.1f}%")
+c4.metric("Open Pipeline Value", f"${open_pipeline:,.0f}")
+c5.metric("Weighted Pipeline", f"${weighted_pipe:,.0f}")
+st.markdown("---")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 2 — Target vs Actuals
+# ─────────────────────────────────────────────────────────────────────────────
+st.subheader("Target vs Actuals")
+
+# Filter targets to match sidebar
+tgt = targets.copy()
+if selected_team  != "All": tgt = tgt[tgt["SALES_TEAM"]       == selected_team]
+if selected_owner != "All": tgt = tgt[tgt["OPPORTUNITY_OWNER"] == selected_owner]
+
+won_by_team = (
+    deals[deals["ORIGINAL_STAGE"] == "Closed Won"]
+    .groupby("SALES_TEAM")["DEAL_AMOUNT"].sum().reset_index()
+    .rename(columns={"DEAL_AMOUNT": "ACTUAL"})
+)
+team_perf = (
+    tgt[["SALES_TEAM", "TEAM_ANNUAL_TARGET"]].drop_duplicates()
+    .merge(won_by_team, on="SALES_TEAM", how="left")
+    .fillna({"ACTUAL": 0})
+)
+team_perf["PCT"] = (team_perf["ACTUAL"] / team_perf["TEAM_ANNUAL_TARGET"] * 100).round(1)
+
+won_by_rep = (
+    deals[deals["ORIGINAL_STAGE"] == "Closed Won"]
+    .groupby("OPPORTUNITY_OWNER")["DEAL_AMOUNT"].sum().reset_index()
+    .rename(columns={"DEAL_AMOUNT": "ACTUAL"})
+)
+rep_perf = (
+    tgt[["OPPORTUNITY_OWNER", "ANNUAL_TARGET", "SALES_TEAM"]]
+    .merge(won_by_rep, on="OPPORTUNITY_OWNER", how="left")
+    .fillna({"ACTUAL": 0})
+)
+rep_perf["PCT"] = (rep_perf["ACTUAL"] / rep_perf["ANNUAL_TARGET"] * 100).round(1)
+
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.markdown("**Sales Team vs Annual Target**")
+    fig_team = go.Figure()
+    fig_team.add_trace(go.Bar(
+        y=team_perf["SALES_TEAM"], x=team_perf["TEAM_ANNUAL_TARGET"],
+        name="Target", orientation="h", marker_color="lightgray", opacity=0.6,
+    ))
+    fig_team.add_trace(go.Bar(
+        y=team_perf["SALES_TEAM"], x=team_perf["ACTUAL"],
+        name="Actual", orientation="h", marker_color=HPE_BLUE,
+        text=[f"${v:,.0f}  ({p:.1f}%)" for v, p in zip(team_perf["ACTUAL"], team_perf["PCT"])],
+        textposition="outside",
+    ))
+    fig_team.update_layout(
+        barmode="overlay", height=300,
+        margin=dict(l=0, r=20, t=10, b=0),
+        legend=dict(orientation="h", y=-0.25),
+        xaxis_title="Revenue ($)",
+    )
+    st.plotly_chart(fig_team, use_container_width=True)
+
+with col_right:
+    st.markdown("**Rep Performance vs Annual Target**")
+    for _, row in rep_perf.sort_values(["SALES_TEAM", "OPPORTUNITY_OWNER"]).iterrows():
+        pct_clamped = min(float(row["PCT"]) / 100, 1.0)
+        rcol1, rcol2 = st.columns([4, 3])
+        with rcol1:
+            st.markdown(f"**{row['OPPORTUNITY_OWNER']}** <small style='color:gray'>({row['SALES_TEAM']})</small>",
+                        unsafe_allow_html=True)
+            st.progress(pct_clamped)
+        with rcol2:
+            st.markdown(f"<div style='padding-top:22px; font-size:13px'>${row['ACTUAL']:,.0f} &nbsp;·&nbsp; {row['PCT']:.1f}%</div>",
+                        unsafe_allow_html=True)
 
 st.markdown("---")
-st.markdown("**Deal Volume by Pipeline Stage**")
-stage_counts = deals.groupby("DEAL_STAGE")["DEAL_ID"].count().reset_index()
-stage_counts.columns = ["Stage", "Count"]
-st.bar_chart(stage_counts.set_index("Stage"))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 3 — Pipeline Health
+# ─────────────────────────────────────────────────────────────────────────────
+st.subheader("Pipeline Health")
+
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.markdown("**Deal Count by Team & Stage**")
+    stage_team = (
+        deals.groupby(["SALES_TEAM", "ORIGINAL_STAGE"])
+        .size().reset_index(name="COUNT")
+    )
+    fig_stack = px.bar(
+        stage_team, x="SALES_TEAM", y="COUNT", color="ORIGINAL_STAGE",
+        barmode="stack", height=380,
+        labels={"COUNT": "Deal Count", "SALES_TEAM": "Sales Team", "ORIGINAL_STAGE": "Stage"},
+    )
+    fig_stack.update_layout(
+        margin=dict(l=0, r=0, t=10, b=0),
+        legend=dict(title="Stage", orientation="h", y=-0.35),
+    )
+    st.plotly_chart(fig_stack, use_container_width=True)
+
+with col_right:
+    st.markdown("**Open Pipeline Value by Stage**")
+    open_by_stage = (
+        deals[deals["ORIGINAL_STAGE"].isin(OPEN_STAGES)]
+        .groupby("ORIGINAL_STAGE")["DEAL_AMOUNT"].sum().reset_index()
+        .sort_values("DEAL_AMOUNT", ascending=True)
+    )
+    fig_open = px.bar(
+        open_by_stage, y="ORIGINAL_STAGE", x="DEAL_AMOUNT",
+        orientation="h", height=380,
+        text=open_by_stage["DEAL_AMOUNT"].apply(lambda x: f"${x:,.0f}"),
+        labels={"DEAL_AMOUNT": "Pipeline Value ($)", "ORIGINAL_STAGE": "Stage"},
+    )
+    fig_open.update_traces(marker_color=HPE_BLUE, textposition="outside")
+    fig_open.update_layout(margin=dict(l=0, r=60, t=10, b=0))
+    st.plotly_chart(fig_open, use_container_width=True)
 
 st.markdown("---")
-st.subheader("Diagnostic Analytics - Why Did It Happen?")
-col1, col2 = st.columns(2)
 
-with col1:
-    st.markdown("**Avg Deal Size by Stage**")
-    avg_amount = deals.groupby("DEAL_STAGE")["DEAL_AMOUNT"].mean().reset_index()
-    avg_amount.columns = ["Stage", "Avg Amount"]
-    st.bar_chart(avg_amount.set_index("Stage"))
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 4 — Performance Trend
+# ─────────────────────────────────────────────────────────────────────────────
+st.subheader("Performance Trend — The Story")
 
-with col2:
-    st.markdown("**Avg Days to Close by Stage**")
-    avg_days = deals.groupby("DEAL_STAGE")["DAYS_TO_CLOSE"].mean().reset_index()
-    avg_days.columns = ["Stage", "Avg Days"]
-    st.bar_chart(avg_days.set_index("Stage"))
+# Parse months for chronological ordering
+month_dt = pd.to_datetime(deals["CLOSE_MONTH"], format="%b %Y", errors="coerce")
+month_order = (
+    deals.assign(_dt=month_dt)
+    .dropna(subset=["_dt"])
+    .drop_duplicates("CLOSE_MONTH")
+    .sort_values("_dt")["CLOSE_MONTH"]
+    .tolist()
+)
+
+monthly = (
+    deals.assign(_dt=month_dt)
+    .dropna(subset=["_dt"])
+    .groupby(["CLOSE_MONTH", "SALES_TEAM", "_dt"])
+    .size().reset_index(name="COUNT")
+    .sort_values("_dt")
+)
+
+fig_trend = px.line(
+    monthly, x="CLOSE_MONTH", y="COUNT", color="SALES_TEAM",
+    markers=True, height=300,
+    labels={"COUNT": "Deal Volume", "CLOSE_MONTH": "Month", "SALES_TEAM": "Sales Team"},
+    category_orders={"CLOSE_MONTH": month_order},
+)
+fig_trend.update_layout(
+    margin=dict(l=0, r=0, t=10, b=0),
+    legend=dict(orientation="h", y=-0.3),
+)
+st.plotly_chart(fig_trend, use_container_width=True)
+
+# Win rate by fiscal period
+wr_rows = []
+for period in sorted(deals["FISCAL_PERIOD"].dropna().unique()):
+    p       = deals[deals["FISCAL_PERIOD"] == period]
+    p_term  = p[p["ORIGINAL_STAGE"].isin(["Closed Won", "Closed Lost", "Gone Cold"])]
+    p_won   = p[p["ORIGINAL_STAGE"] == "Closed Won"]
+    wr_rows.append({
+        "FISCAL_PERIOD": period,
+        "WIN_RATE": len(p_won) / len(p_term) * 100 if len(p_term) > 0 else 0,
+    })
+wr_df  = pd.DataFrame(wr_rows)
+avg_wr = wr_df["WIN_RATE"].mean() if len(wr_df) > 0 else 0
+wr_df["COLOR"] = wr_df["WIN_RATE"].apply(lambda x: "Above Average" if x >= avg_wr else "Below Average")
+
+fig_wr = px.bar(
+    wr_df, x="FISCAL_PERIOD", y="WIN_RATE", color="COLOR",
+    color_discrete_map={"Above Average": "#2ecc71", "Below Average": "#e74c3c"},
+    height=300,
+    labels={"WIN_RATE": "Win Rate (%)", "FISCAL_PERIOD": "Fiscal Period", "COLOR": ""},
+    text=wr_df["WIN_RATE"].apply(lambda x: f"{x:.1f}%"),
+)
+fig_wr.add_hline(
+    y=avg_wr, line_dash="dash", line_color="gray",
+    annotation_text=f"Avg {avg_wr:.1f}%", annotation_position="top right",
+)
+fig_wr.update_traces(textposition="outside")
+fig_wr.update_layout(
+    margin=dict(l=0, r=0, t=10, b=0),
+    legend=dict(orientation="h", y=-0.3),
+)
+st.plotly_chart(fig_wr, use_container_width=True)
 
 st.markdown("---")
-with st.expander("View raw deal data"):
-    st.dataframe(deals)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 5 — Raw Deal Table
+# ─────────────────────────────────────────────────────────────────────────────
+with st.expander("View Raw Deal Data"):
+    display = (
+        deals[["OPPORTUNITY_OWNER", "ACCOUNT_NAME", "ORIGINAL_STAGE",
+                "SALES_TEAM", "DEAL_AMOUNT", "CLOSE_DATE", "FISCAL_PERIOD"]]
+        .rename(columns={
+            "OPPORTUNITY_OWNER": "Owner",
+            "ACCOUNT_NAME":      "Account",
+            "ORIGINAL_STAGE":    "Stage",
+            "SALES_TEAM":        "Team",
+            "DEAL_AMOUNT":       "Amount ($)",
+            "CLOSE_DATE":        "Close Date",
+            "FISCAL_PERIOD":     "Fiscal Period",
+        })
+        .sort_values("Close Date")
+    )
+    st.dataframe(display, use_container_width=True)
