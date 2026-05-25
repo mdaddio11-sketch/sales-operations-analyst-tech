@@ -149,23 +149,15 @@ with col_left:
     fig_team.add_trace(go.Bar(
         y=team_perf["SALES_TEAM"], x=team_perf["ACTUAL"],
         name="Actual", orientation="h", marker_color=HPE_BLUE,
+        text=[f"${v:,.0f} ({p:.1f}%)" for v, p in zip(team_perf["ACTUAL"], team_perf["PCT"])],
+        textposition="outside",
     ))
-    x_max = team_perf["TEAM_ANNUAL_TARGET"].max() if len(team_perf) > 0 else 1
-    annotations = [
-        dict(
-            x=row["TEAM_ANNUAL_TARGET"] + x_max * 0.02,
-            y=row["SALES_TEAM"],
-            text=f"${row['ACTUAL']:,.0f} ({row['PCT']:.1f}%)",
-            showarrow=False, xanchor="left", font=dict(size=12),
-        )
-        for _, row in team_perf.iterrows()
-    ]
+    x_max = float(team_perf["TEAM_ANNUAL_TARGET"].max()) if len(team_perf) > 0 else 1
     fig_team.update_layout(
         barmode="overlay", height=300,
-        margin=dict(l=0, r=200, t=10, b=0),
+        margin=dict(l=0, r=20, t=10, b=0),
         legend=dict(orientation="h", y=-0.25),
-        xaxis_title="Revenue ($)",
-        annotations=annotations,
+        xaxis=dict(title="Revenue ($)", range=[0, x_max * 1.3]),
     )
     st.plotly_chart(fig_team, use_container_width=True)
 
