@@ -14,6 +14,12 @@ final as (
         updated_at,
         owner_id,
         stage_probability,
+        opportunity_owner,
+        account_name,
+        sales_team,
+        fiscal_period,
+        original_stage,
+        close_month,
 
         -- Derived metrics
         case

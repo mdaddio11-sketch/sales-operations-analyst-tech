@@ -38,7 +38,7 @@ print("Fetching deals...")
 deals = fetch_all("/crm/v3/objects/deals", [
     "dealname", "amount", "dealstage", "pipeline",
     "closedate", "createdate", "hs_lastmodifieddate",
-    "hubspot_owner_id", "hs_deal_stage_probability"
+    "hubspot_owner_id", "hs_deal_stage_probability", "description"
 ])
 print(f"  Got {len(deals)} deals")
 
@@ -65,7 +65,8 @@ conn = snowflake.connector.connect(
 cur = conn.cursor()
 print("  Connected!")
 
-cur.execute(f"CREATE TABLE IF NOT EXISTS {SF_DATABASE}.{SF_SCHEMA}.RAW_HUBSPOT_DEALS (deal_id VARCHAR, dealname VARCHAR, amount FLOAT, dealstage VARCHAR, pipeline VARCHAR, closedate VARCHAR, createdate VARCHAR, last_modified VARCHAR, owner_id VARCHAR, stage_prob FLOAT, loaded_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP())")
+cur.execute(f"CREATE TABLE IF NOT EXISTS {SF_DATABASE}.{SF_SCHEMA}.RAW_HUBSPOT_DEALS (deal_id VARCHAR, dealname VARCHAR, amount FLOAT, dealstage VARCHAR, pipeline VARCHAR, closedate VARCHAR, createdate VARCHAR, last_modified VARCHAR, owner_id VARCHAR, stage_prob FLOAT, description VARCHAR, loaded_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP())")
+cur.execute(f"ALTER TABLE {SF_DATABASE}.{SF_SCHEMA}.RAW_HUBSPOT_DEALS ADD COLUMN IF NOT EXISTS description VARCHAR")
 cur.execute(f"CREATE TABLE IF NOT EXISTS {SF_DATABASE}.{SF_SCHEMA}.RAW_HUBSPOT_COMPANIES (company_id VARCHAR, name VARCHAR, domain VARCHAR, industry VARCHAR, annual_revenue FLOAT, num_employees INTEGER, city VARCHAR, state VARCHAR, country VARCHAR, createdate VARCHAR, loaded_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP())")
 cur.execute(f"CREATE TABLE IF NOT EXISTS {SF_DATABASE}.{SF_SCHEMA}.RAW_HUBSPOT_CONTACTS (contact_id VARCHAR, firstname VARCHAR, lastname VARCHAR, email VARCHAR, jobtitle VARCHAR, company VARCHAR, phone VARCHAR, createdate VARCHAR, lead_status VARCHAR, loaded_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP())")
 print("  Tables ready")
@@ -86,9 +87,10 @@ for d in deals:
         p.get("hs_lastmodifieddate"),
         p.get("hubspot_owner_id"),
         float(p["hs_deal_stage_probability"]) if p.get("hs_deal_stage_probability") else None,
+        p.get("description"),
     ))
 if rows:
-    cur.executemany(f"INSERT INTO {SF_DATABASE}.{SF_SCHEMA}.RAW_HUBSPOT_DEALS (deal_id,dealname,amount,dealstage,pipeline,closedate,createdate,last_modified,owner_id,stage_prob) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", rows)
+    cur.executemany(f"INSERT INTO {SF_DATABASE}.{SF_SCHEMA}.RAW_HUBSPOT_DEALS (deal_id,dealname,amount,dealstage,pipeline,closedate,createdate,last_modified,owner_id,stage_prob,description) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", rows)
 print(f"  Loaded {len(rows)} deals into Snowflake")
 
 # Load companies - 10 columns
