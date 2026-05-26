@@ -124,7 +124,7 @@ c1.metric("Total Deals", f"{len(deals):,}")
 c2.metric("Closed Won Revenue", fmt(won_revenue))
 c3.metric("Win Rate", f"{win_rate:.1f}%")
 c4.metric("Open Pipeline Value", fmt(open_pipeline))
-c5.metric("Weighted Forecast", fmt(expected_rev))
+c5.metric("Weighted Open Pipeline", fmt(expected_rev))
 
 with st.expander("ℹ️ How are these calculated?"):
     ec1, ec2 = st.columns(2)
@@ -138,7 +138,7 @@ with st.expander("ℹ️ How are these calculated?"):
         st.caption("Sum of deal amounts for all Closed Won deals.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE = 'Closed Won'`")
         st.markdown("**Open Pipeline Value**")
         st.caption("Total value of deals still actively in the pipeline — excludes Closed Won, Closed Lost, and Gone Cold.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')`")
-        st.markdown("**Weighted Forecast**")
+        st.markdown("**Weighted Open Pipeline**")
         st.caption("Probability-weighted sum of all open deals. The gap between this and Open Pipeline Value shows how much the pipeline is discounted by stage.\n\n`SUM(DEAL_AMOUNT * STAGE_PROBABILITY) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')`")
 st.markdown("---")
 
