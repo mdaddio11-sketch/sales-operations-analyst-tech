@@ -69,8 +69,16 @@ if selected_owner != "All": deals = deals[deals["OPPORTUNITY_OWNER"] == selected
 if selected_period != "All": deals = deals[deals["FISCAL_PERIOD"]    == selected_period]
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.title("HPE Sales Operations Dashboard")
-st.caption("Business Analyst, Sales Operations — Hewlett Packard Enterprise")
+st.markdown("""
+<div style="background-color: #0096D6; padding: 20px 30px; border-radius: 10px; display: flex; align-items: center; gap: 20px; margin-bottom: 24px;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Hewlett_Packard_Enterprise_logo.svg/320px-Hewlett_Packard_Enterprise_logo.svg.png"
+         style="height: 50px; filter: brightness(0) invert(1);" />
+    <div>
+        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Sales Operations Dashboard</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 4px 0 0 0; font-size: 14px;">Business Analyst, Sales Operations — Hewlett Packard Enterprise</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
