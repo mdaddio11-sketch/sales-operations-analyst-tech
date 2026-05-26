@@ -114,12 +114,14 @@ open_deals = deals[~deals["ORIGINAL_STAGE"].isin(CLOSED_STAGES)]
 won_revenue   = won_deals["DEAL_AMOUNT"].sum()
 win_rate      = len(won_deals) / len(terminal) * 100 if len(terminal) > 0 else 0
 open_pipeline = open_deals["DEAL_AMOUNT"].sum()
+expected_rev  = (deals["DEAL_AMOUNT"] * deals["STAGE_PROBABILITY"]).sum()
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Total Deals", f"{len(deals):,}")
 c2.metric("Closed Won Revenue", fmt(won_revenue))
 c3.metric("Win Rate", f"{win_rate:.1f}%")
 c4.metric("Open Pipeline Value", fmt(open_pipeline))
+c5.metric("Expected Revenue", fmt(expected_rev))
 
 with st.expander("ℹ️ How are these calculated?"):
     ec1, ec2 = st.columns(2)
@@ -133,6 +135,8 @@ with st.expander("ℹ️ How are these calculated?"):
         st.caption("Sum of deal amounts for all Closed Won deals.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE = 'Closed Won'`")
         st.markdown("**Open Pipeline Value**")
         st.caption("Total value of deals still actively in the pipeline — excludes Closed Won, Closed Lost, and Gone Cold.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')`")
+        st.markdown("**Expected Revenue**")
+        st.caption("Risk-adjusted forecast: each deal's amount multiplied by its stage probability, summed across all deals including Closed Won.\n\n`SUM(DEAL_AMOUNT * STAGE_PROBABILITY)`")
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -401,7 +405,90 @@ st.plotly_chart(fig_wr, width='stretch')
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SECTION 5 — Raw Deal Table
+# SECTION 5 — Revenue Forecast
+# ─────────────────────────────────────────────────────────────────────────────
+st.subheader("Revenue Forecast")
+
+ANNUAL_TARGET = 9_300_000
+
+FORECAST_GROUPS = [
+    ("Closed Won",      ["Closed Won"]),
+    ("High Confidence", ["Verbal Confirmation", "Expected Close"]),
+    ("Mid Confidence",  ["Proposal / Quote", "Priority"]),
+    ("Low Confidence",  ["Qualified"]),
+    ("Speculative",     ["Backlog"]),
+]
+FORECAST_COLORS = {
+    "Closed Won":      "#0d3b5e",
+    "High Confidence": "#1a6fa8",
+    "Mid Confidence":  "#2e86c1",
+    "Low Confidence":  "#5dade2",
+    "Speculative":     "#aed6f1",
+}
+
+forecast_rows = []
+for label, stages in FORECAST_GROUPS:
+    grp = deals[deals["ORIGINAL_STAGE"].isin(stages)]
+    forecast_rows.append({
+        "Group":            label,
+        "Expected Revenue": (grp["DEAL_AMOUNT"] * grp["STAGE_PROBABILITY"]).sum(),
+        "Deals":            len(grp),
+    })
+forecast_df    = pd.DataFrame(forecast_rows)
+expected_total = forecast_df["Expected Revenue"].sum()
+pct_of_target  = expected_total / ANNUAL_TARGET * 100 if ANNUAL_TARGET > 0 else 0
+
+fc_left, fc_right = st.columns(2)
+
+with fc_left:
+    st.markdown("**Expected Revenue by Stage Group**")
+    fig_forecast = px.bar(
+        forecast_df, y="Group", x="Expected Revenue",
+        orientation="h", height=350,
+        color="Group",
+        color_discrete_map=FORECAST_COLORS,
+        category_orders={"Group": ["Speculative", "Low Confidence", "Mid Confidence", "High Confidence", "Closed Won"]},
+        labels={"Expected Revenue": "Expected Revenue ($)", "Group": ""},
+    )
+    fig_forecast.update_traces(
+        customdata=forecast_df[["Deals"]].values,
+        hovertemplate="%{y}: $%{x:,.0f} · %{customdata[0]} deals<extra></extra>",
+    )
+    fig_forecast.update_layout(
+        showlegend=False,
+        margin=dict(l=0, r=20, t=10, b=0),
+    )
+    st.plotly_chart(fig_forecast, width='stretch')
+
+with fc_right:
+    st.markdown("**Forecast vs Annual Target**")
+    gauge_color = "#2ecc71" if pct_of_target >= 70 else ("#f39c12" if pct_of_target >= 50 else "#e74c3c")
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=pct_of_target,
+        number={"suffix": "%", "font": {"size": 44}},
+        title={"text": f"Forecast vs Target<br><span style='font-size:14px;color:gray'>{fmt(expected_total)} of $9.3M</span>"},
+        gauge={
+            "axis": {"range": [0, 100], "ticksuffix": "%"},
+            "bar":  {"color": gauge_color},
+            "steps": [
+                {"range": [0,  50], "color": "#fde8e8"},
+                {"range": [50, 70], "color": "#fef9e7"},
+                {"range": [70, 100], "color": "#eafaf1"},
+            ],
+            "threshold": {"line": {"color": "black", "width": 2}, "thickness": 0.75, "value": 100},
+        },
+    ))
+    fig_gauge.update_layout(height=350, margin=dict(l=20, r=20, t=80, b=20))
+    st.plotly_chart(fig_gauge, width='stretch')
+
+with st.expander("ℹ️ How is Expected Revenue calculated?"):
+    st.caption("Expected Revenue weights each deal by its stage probability to produce a risk-adjusted forecast. A Closed Won deal counts 100%, a Verbal Confirmation counts 80%, and so on. This gives a more realistic revenue forecast than counting all open pipeline at face value.")
+
+st.markdown("---")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 6 — Raw Deal Table
 # ─────────────────────────────────────────────────────────────────────────────
 with st.expander("View Raw Deal Data"):
     display = (
