@@ -264,7 +264,13 @@ with col_right:
     )
 
     def highlight_won(s):
-        return ["background-color: #d4edda" if s["Status"] == "Closed Won" else "" for _ in s]
+        if s["Status"] == "Closed Won":
+            color = "background-color: #d4edda"
+        elif s["Status"] in ("Gone Cold", "Closed Lost"):
+            color = "background-color: #fde8e8"
+        else:
+            color = ""
+        return [color for _ in s]
 
     for rank, (_, row) in enumerate(sorted_reps.iterrows()):
         pct_clamped = min(float(row["PCT"]) / 100, 1.0)
