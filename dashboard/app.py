@@ -75,8 +75,26 @@ st.markdown("""
          style="height: 50px; filter: brightness(0) invert(1);" />
     <div>
         <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Sales Operations Dashboard</h1>
-        <p style="color: rgba(255,255,255,0.85); margin: 4px 0 0 0; font-size: 14px;">Business Analyst, Sales Operations — Hewlett Packard Enterprise</p>
     </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Bio summary — always computed from unfiltered full dataset
+_won      = deals_raw[deals_raw["ORIGINAL_STAGE"] == "Closed Won"]
+_terminal = deals_raw[deals_raw["ORIGINAL_STAGE"].isin(["Closed Won", "Closed Lost", "Gone Cold"])]
+_open     = deals_raw[~deals_raw["ORIGINAL_STAGE"].isin(CLOSED_STAGES)]
+total_deals            = len(deals_raw)
+closed_won_revenue_fmt = fmt(_won["DEAL_AMOUNT"].sum())
+win_rate_fmt           = f"{len(_won) / len(_terminal) * 100:.1f}%" if len(_terminal) > 0 else "0.0%"
+open_pipeline_fmt      = fmt(_open["DEAL_AMOUNT"].sum())
+
+st.markdown(f"""
+<div style="background-color: #f0f7ff; border-left: 4px solid #0096D6; padding: 14px 20px; border-radius: 6px; margin-bottom: 24px;">
+    <p style="margin: 0; font-size: 15px; color: #1a1a1a;">
+    Tracking <strong>{total_deals} deals</strong> across <strong>Enterprise, Public Sector, and SMB</strong> teams —
+    <strong>{closed_won_revenue_fmt}</strong> closed won against a combined annual target of <strong>$9.3M</strong>.
+    Win rate sits at <strong>{win_rate_fmt}</strong> with <strong>{open_pipeline_fmt}</strong> in active pipeline across 9 sales reps.
+    </p>
 </div>
 """, unsafe_allow_html=True)
 st.markdown("---")
