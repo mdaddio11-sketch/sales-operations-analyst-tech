@@ -283,31 +283,53 @@ st.subheader("Performance Trend — The Story")
 
 # Parse months for chronological ordering
 month_dt = pd.to_datetime(deals["CLOSE_MONTH"], format="%b %Y", errors="coerce")
-month_order = (
+monthly_total = (
     deals.assign(_dt=month_dt)
     .dropna(subset=["_dt"])
-    .drop_duplicates("CLOSE_MONTH")
-    .sort_values("_dt")["CLOSE_MONTH"]
-    .tolist()
-)
-
-monthly = (
-    deals.assign(_dt=month_dt)
-    .dropna(subset=["_dt"])
-    .groupby(["CLOSE_MONTH", "SALES_TEAM", "_dt"])
+    .groupby("_dt")
     .size().reset_index(name="COUNT")
     .sort_values("_dt")
 )
 
-fig_trend = px.line(
-    monthly, x="CLOSE_MONTH", y="COUNT", color="SALES_TEAM",
-    markers=True, height=300,
-    labels={"COUNT": "Deal Volume", "CLOSE_MONTH": "Month", "SALES_TEAM": "Sales Team"},
-    category_orders={"CLOSE_MONTH": month_order},
+H1_END   = pd.Timestamp("2024-06-30")
+H2_START = pd.Timestamp("2024-07-01")
+
+h1 = monthly_total[monthly_total["_dt"] <= H1_END]
+h2 = monthly_total[monthly_total["_dt"] >= H2_START]
+h2_connected = pd.concat([h1.tail(1), h2])
+
+fig_trend = go.Figure()
+fig_trend.add_trace(go.Scatter(
+    x=h1["_dt"], y=h1["COUNT"],
+    mode="lines+markers", name="H1 — Focused Pipeline",
+    line=dict(color=HPE_BLUE, width=2),
+    marker=dict(size=7, color=HPE_BLUE),
+    hovertemplate="%{x|%b %Y}: %{y} deals<extra></extra>",
+))
+fig_trend.add_trace(go.Scatter(
+    x=h2_connected["_dt"], y=h2_connected["COUNT"],
+    mode="lines+markers", name="H2 — Pipeline Inflation",
+    line=dict(color="#E8531E", width=2),
+    marker=dict(size=7, color="#E8531E"),
+    hovertemplate="%{x|%b %Y}: %{y} deals<extra></extra>",
+))
+fig_trend.add_vline(x="2024-07-01", line_dash="dash", line_color="gray", line_width=1)
+fig_trend.add_annotation(
+    x="2024-03-15", y=1.08, yref="paper",
+    text="H1 — Focused Pipeline",
+    showarrow=False, font=dict(size=11, color=HPE_BLUE), xanchor="center",
+)
+fig_trend.add_annotation(
+    x="2024-09-15", y=1.08, yref="paper",
+    text="H2 — Pipeline Inflation",
+    showarrow=False, font=dict(size=11, color="#E8531E"), xanchor="center",
 )
 fig_trend.update_layout(
-    margin=dict(l=0, r=0, t=10, b=0),
+    height=320,
+    margin=dict(l=0, r=0, t=45, b=0),
     legend=dict(orientation="h", y=-0.3),
+    xaxis=dict(tickformat="%b %Y", title="Month"),
+    yaxis=dict(title="Deal Volume"),
 )
 st.plotly_chart(fig_trend, width='stretch')
 
