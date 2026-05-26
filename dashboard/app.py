@@ -411,31 +411,21 @@ st.subheader("Revenue Forecast")
 
 ANNUAL_TARGET = pd.to_numeric(targets["ANNUAL_TARGET"], errors="coerce").fillna(0).sum()
 
-FORECAST_GROUPS = [
-    ("Closed Won",      ["Closed Won"]),
-    ("High Confidence", ["Verbal Confirmation", "Expected Close"]),
-    ("Mid Confidence",  ["Proposal / Quote", "Priority"]),
-    ("Low Confidence",  ["Qualified"]),
-    ("Speculative",     ["Backlog"]),
-]
-FORECAST_COLORS = {
-    "Closed Won":      "#0d3b5e",
-    "High Confidence": "#1a6fa8",
-    "Mid Confidence":  "#2e86c1",
-    "Low Confidence":  "#5dade2",
-    "Speculative":     "#aed6f1",
+_sf = deals[deals["STAGE_PROBABILITY"] > 0].copy()
+_sf["EXPECTED"] = _sf["DEAL_AMOUNT"] * _sf["STAGE_PROBABILITY"]
+stage_forecast = (
+    _sf.groupby(["ORIGINAL_STAGE", "STAGE_PROBABILITY"])
+    .agg(EXPECTED=("EXPECTED", "sum"), DEALS=("DEAL_AMOUNT", "count"))
+    .reset_index()
+    .sort_values("STAGE_PROBABILITY", ascending=False)
+)
+
+PROB_COLORS = {1.0: "#0d3b5e", 0.9: "#1a5276", 0.8: "#1a6fa8", 0.6: "#2e86c1", 0.4: "#5dade2", 0.2: "#aed6f1"}
+stage_color_map = {
+    row["ORIGINAL_STAGE"]: PROB_COLORS.get(row["STAGE_PROBABILITY"], "#aed6f1")
+    for _, row in stage_forecast.iterrows()
 }
 
-forecast_rows = []
-for label, stages in FORECAST_GROUPS:
-    grp = deals[deals["ORIGINAL_STAGE"].isin(stages)]
-    forecast_rows.append({
-        "Group":            label,
-        "Expected Revenue": (grp["DEAL_AMOUNT"] * grp["STAGE_PROBABILITY"]).sum(),
-        "Deals":            len(grp),
-    })
-forecast_df    = pd.DataFrame(forecast_rows)
-expected_total = forecast_df["Expected Revenue"].sum()
 closed_won_rev = deals[deals["ORIGINAL_STAGE"] == "Closed Won"]["DEAL_AMOUNT"].sum()
 pct_of_target  = closed_won_rev / ANNUAL_TARGET * 100 if ANNUAL_TARGET > 0 else 0
 target_fmt     = fmt(ANNUAL_TARGET)
@@ -443,17 +433,17 @@ target_fmt     = fmt(ANNUAL_TARGET)
 fc_left, fc_right = st.columns(2)
 
 with fc_left:
-    st.markdown("**Expected Revenue by Stage Group**")
+    st.markdown("**Expected Revenue by Stage**")
     fig_forecast = px.bar(
-        forecast_df, y="Group", x="Expected Revenue",
+        stage_forecast, y="ORIGINAL_STAGE", x="EXPECTED",
         orientation="h", height=350,
-        color="Group",
-        color_discrete_map=FORECAST_COLORS,
-        category_orders={"Group": ["Speculative", "Low Confidence", "Mid Confidence", "High Confidence", "Closed Won"]},
-        labels={"Expected Revenue": "Expected Revenue ($)", "Group": ""},
+        color="ORIGINAL_STAGE",
+        color_discrete_map=stage_color_map,
+        category_orders={"ORIGINAL_STAGE": stage_forecast["ORIGINAL_STAGE"].tolist()[::-1]},
+        labels={"EXPECTED": "Expected Revenue ($)", "ORIGINAL_STAGE": ""},
     )
     fig_forecast.update_traces(
-        customdata=forecast_df[["Deals"]].values,
+        customdata=stage_forecast[["DEALS"]].values,
         hovertemplate="%{y}: $%{x:,.0f} · %{customdata[0]} deals<extra></extra>",
     )
     fig_forecast.update_layout(
