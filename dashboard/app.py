@@ -168,7 +168,7 @@ with col_left:
         legend=dict(orientation="h", y=-0.25),
         xaxis=dict(title="Revenue ($)", range=[0, x_max * 1.2]),
     )
-    st.plotly_chart(fig_team, use_container_width=True)
+    st.plotly_chart(fig_team, width='stretch')
 
     summary = team_perf[["SALES_TEAM", "ACTUAL", "TEAM_ANNUAL_TARGET", "PCT"]].copy()
     summary.columns = ["Team", "Actual Revenue", "Target", "% Attained"]
@@ -181,11 +181,11 @@ with col_left:
 
     styled_summary = (
         summary.style
-        .applymap(color_pct, subset=["% Attained"])
+        .map(color_pct, subset=["% Attained"])
         .format({"% Attained": "{:.1f}%"})
         .hide(axis="index")
     )
-    st.dataframe(styled_summary, use_container_width=True, hide_index=True)
+    st.dataframe(styled_summary, width='stretch', hide_index=True)
 
 with col_right:
     st.markdown("**Rep Performance vs Annual Target**")
@@ -214,7 +214,7 @@ with col_right:
         rep_display.columns = ["Opportunity", "Account", "Amount", "Close Date", "Status"]
         styled = rep_display.style.apply(highlight_won, axis=1)
         with st.popover(f"View {rep_name}'s deals ({len(rep_deals)})"):
-            st.dataframe(styled, use_container_width=True, hide_index=True)
+            st.dataframe(styled, width='stretch', hide_index=True)
 
 st.markdown("---")
 
@@ -252,7 +252,7 @@ with col_left:
         margin=dict(l=0, r=0, t=10, b=0),
         legend=dict(title="Stage", orientation="h", y=-0.35),
     )
-    st.plotly_chart(fig_stack, use_container_width=True)
+    st.plotly_chart(fig_stack, width='stretch')
 
 with col_right:
     st.markdown("**Open Pipeline Value by Stage**")
@@ -272,7 +272,7 @@ with col_right:
         textposition="outside",
     )
     fig_open.update_layout(margin=dict(l=0, r=150, t=10, b=0))
-    st.plotly_chart(fig_open, use_container_width=True)
+    st.plotly_chart(fig_open, width='stretch')
 
 st.markdown("---")
 
@@ -309,7 +309,7 @@ fig_trend.update_layout(
     margin=dict(l=0, r=0, t=10, b=0),
     legend=dict(orientation="h", y=-0.3),
 )
-st.plotly_chart(fig_trend, use_container_width=True)
+st.plotly_chart(fig_trend, width='stretch')
 
 # Win rate by fiscal period
 wr_rows = []
@@ -341,7 +341,7 @@ fig_wr.update_layout(
     margin=dict(l=0, r=0, t=10, b=0),
     legend=dict(orientation="h", y=-0.3),
 )
-st.plotly_chart(fig_wr, use_container_width=True)
+st.plotly_chart(fig_wr, width='stretch')
 
 st.markdown("---")
 
@@ -363,4 +363,4 @@ with st.expander("View Raw Deal Data"):
         })
         .sort_values("Close Date")
     )
-    st.dataframe(display, use_container_width=True)
+    st.dataframe(display, width='stretch')
