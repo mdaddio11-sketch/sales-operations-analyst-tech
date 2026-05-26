@@ -226,31 +226,36 @@ st.subheader("Pipeline Health")
 col_left, col_right = st.columns(2)
 
 with col_left:
-    st.markdown("**Deal Count by Team & Stage**")
-    drill_view = st.radio(
-        "View", ["All Teams", "Enterprise", "Public Sector", "SMB"],
-        horizontal=True, key="pipeline_drill",
-    )
-    if drill_view == "All Teams":
-        stage_data = deals.groupby(["SALES_TEAM", "ORIGINAL_STAGE"]).size().reset_index(name="COUNT")
-        x_col = "SALES_TEAM"
-        x_label = "Sales Team"
-    else:
-        stage_data = (
-            deals[deals["SALES_TEAM"] == drill_view]
-            .groupby(["OPPORTUNITY_OWNER", "ORIGINAL_STAGE"])
-            .size().reset_index(name="COUNT")
-        )
-        x_col = "OPPORTUNITY_OWNER"
-        x_label = "Rep"
+    st.markdown("**Deal Count by Team & Stage Group**")
+
+    def get_stage_group(stage):
+        if stage == "Closed Won":
+            return "Closed Won"
+        elif stage in ["Closed Lost", "Gone Cold"]:
+            return "Lost / Gone Cold"
+        elif stage in ["Verbal Confirmation", "Expected Close", "Backlog"]:
+            return "Late Stage"
+        else:
+            return "Early Stage"
+
+    deals["STAGE_GROUP"] = deals["ORIGINAL_STAGE"].apply(get_stage_group)
+    stage_data = deals.groupby(["SALES_TEAM", "STAGE_GROUP"]).size().reset_index(name="COUNT")
+
     fig_stack = px.bar(
-        stage_data, x=x_col, y="COUNT", color="ORIGINAL_STAGE",
+        stage_data, x="SALES_TEAM", y="COUNT", color="STAGE_GROUP",
         barmode="stack", height=380,
-        labels={"COUNT": "Deal Count", x_col: x_label, "ORIGINAL_STAGE": "Stage"},
+        labels={"COUNT": "Deal Count", "SALES_TEAM": "Sales Team", "STAGE_GROUP": "Stage Group"},
+        color_discrete_map={
+            "Closed Won":       "#2ecc71",
+            "Lost / Gone Cold": "#e74c3c",
+            "Late Stage":       "#f39c12",
+            "Early Stage":      "#3498db",
+        },
+        category_orders={"STAGE_GROUP": ["Early Stage", "Late Stage", "Closed Won", "Lost / Gone Cold"]},
     )
     fig_stack.update_layout(
         margin=dict(l=0, r=0, t=10, b=0),
-        legend=dict(title="Stage", orientation="h", y=-0.35),
+        legend=dict(title="Stage Group", orientation="h", y=-0.35),
     )
     st.plotly_chart(fig_stack, width='stretch')
 
