@@ -81,7 +81,7 @@ st.markdown("""
 with st.expander("📖 How to use this dashboard", expanded=False):
     st.markdown("""
 **Filters (sidebar)**
-Click the **«** icon at the top left of the page to open the filter panel. You can filter all charts and metrics by:
+Click the **»** icon at the top left of the page to open the filter panel. You can filter all charts and metrics by:
 - **Sales Team** — View Enterprise, Public Sector, or SMB in isolation, or keep All to see the full picture
 - **Opportunity Owner** — Drill into a single Account Executive's pipeline and performance
 - **Fiscal Period** — Focus on a specific quarter (Q1–Q4)
