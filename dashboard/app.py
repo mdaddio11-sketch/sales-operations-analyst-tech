@@ -88,11 +88,46 @@ open_pipeline = open_deals["DEAL_AMOUNT"].sum()
 weighted_pipe = (deals["DEAL_AMOUNT"] * deals["STAGE_PROBABILITY"]).sum()
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Total Deals", f"{len(deals):,}")
-c2.metric("Closed Won Revenue", fmt(won_revenue))
-c3.metric("Win Rate", f"{win_rate:.1f}%")
-c4.metric("Open Pipeline Value", fmt(open_pipeline))
-c5.metric("Weighted Pipeline", fmt(weighted_pipe))
+
+with c1:
+    lc, ic = st.columns([6, 1])
+    lc.markdown("**Total Deals**")
+    with ic:
+        with st.popover("ℹ️"):
+            st.caption("Total number of deals in the system across all stages, teams, and reps. Includes open, closed won, closed lost, and gone cold deals. Filtered by your sidebar selections.")
+    st.metric("", f"{len(deals):,}", label_visibility="collapsed")
+
+with c2:
+    lc, ic = st.columns([6, 1])
+    lc.markdown("**Closed Won Revenue**")
+    with ic:
+        with st.popover("ℹ️"):
+            st.caption("Sum of deal amounts where the stage is 'Closed Won'. This represents actual booked revenue — deals that have been fully closed and won. Formula: SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE = 'Closed Won'")
+    st.metric("", fmt(won_revenue), label_visibility="collapsed")
+
+with c3:
+    lc, ic = st.columns([6, 1])
+    lc.markdown("**Win Rate**")
+    with ic:
+        with st.popover("ℹ️"):
+            st.caption("Percentage of closed deals that were won. Only counts deals with a definitive outcome (Closed Won, Closed Lost, or Gone Cold) — excludes all open pipeline deals. Formula: COUNT(Closed Won) / COUNT(Closed Won + Closed Lost + Gone Cold)")
+    st.metric("", f"{win_rate:.1f}%", label_visibility="collapsed")
+
+with c4:
+    lc, ic = st.columns([6, 1])
+    lc.markdown("**Open Pipeline Value**")
+    with ic:
+        with st.popover("ℹ️"):
+            st.caption("Total dollar value of all deals still actively in the pipeline — excludes Closed Won, Closed Lost, and Gone Cold. Represents potential future revenue if all open deals close. Formula: SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')")
+    st.metric("", fmt(open_pipeline), label_visibility="collapsed")
+
+with c5:
+    lc, ic = st.columns([6, 1])
+    lc.markdown("**Weighted Pipeline**")
+    with ic:
+        with st.popover("ℹ️"):
+            st.caption("Open pipeline value adjusted by each deal's probability of closing based on its stage. Early-stage deals are discounted more than late-stage deals. Formula: SUM(DEAL_AMOUNT * STAGE_PROBABILITY) for all open deals")
+    st.metric("", fmt(weighted_pipe), label_visibility="collapsed")
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
