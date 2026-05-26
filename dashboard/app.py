@@ -224,7 +224,7 @@ with col_left:
     st.dataframe(styled_summary, width='stretch', hide_index=True)
 
 with col_right:
-    st.markdown("**Rep Performance vs Annual Target**")
+    st.markdown("**Rep Performance vs Target**")
     sorted_reps = rep_perf.sort_values("ACTUAL", ascending=False)
 
     def highlight_won(s):
