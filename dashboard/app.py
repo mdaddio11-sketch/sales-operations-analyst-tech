@@ -227,15 +227,31 @@ with col_right:
     st.markdown("**Account Executive Leaderboard**")
     sorted_reps = rep_perf.sort_values("ACTUAL", ascending=False)
 
+    MEDAL_STYLES = [
+        "border-left: 3px solid #D4AF37; background: #fdfbf3",
+        "border-left: 3px solid #A8A9AD; background: #fafafa",
+        "border-left: 3px solid #CD7F32; background: #fdf8f4",
+    ]
+
     def highlight_won(s):
         return ["background-color: #d4edda" if s["Status"] == "Closed Won" else "" for _ in s]
 
-    for _, row in sorted_reps.iterrows():
+    for rank, (_, row) in enumerate(sorted_reps.iterrows()):
         pct_clamped = min(float(row["PCT"]) / 100, 1.0)
         rcol1, rcol2 = st.columns([4, 3])
         with rcol1:
-            st.markdown(f"**{row['OPPORTUNITY_OWNER']}** <small style='color:gray'>({row['SALES_TEAM']})</small>",
-                        unsafe_allow_html=True)
+            if rank < 3:
+                st.markdown(
+                    f"<div style='{MEDAL_STYLES[rank]}; padding: 8px 12px; border-radius: 4px; margin-bottom: 4px;'>"
+                    f"<strong>{row['OPPORTUNITY_OWNER']}</strong> "
+                    f"<small style='color:gray'>({row['SALES_TEAM']})</small></div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f"**{row['OPPORTUNITY_OWNER']}** <small style='color:gray'>({row['SALES_TEAM']})</small>",
+                    unsafe_allow_html=True,
+                )
             st.progress(pct_clamped)
         with rcol2:
             st.markdown(f"<div style='padding-top:22px; font-size:13px'>${row['ACTUAL']:,.0f} &nbsp;·&nbsp; {row['PCT']:.1f}%</div>",
