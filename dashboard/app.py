@@ -366,6 +366,7 @@ fig_wr.update_layout(
     margin=dict(l=0, r=0, t=10, b=0),
     legend=dict(orientation="h", y=-0.3),
 )
+st.markdown("**Win Rate by Fiscal Period**")
 st.plotly_chart(fig_wr, width='stretch')
 
 st.markdown("---")
