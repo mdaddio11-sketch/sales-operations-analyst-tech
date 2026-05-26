@@ -21,9 +21,9 @@ def fmt(x):
     return f"${x:.0f}"
 
 
-@st.cache_resource
-def get_connection():
-    return snowflake.connector.connect(
+@st.cache_data(ttl=86400)
+def load_data():
+    conn = snowflake.connector.connect(
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
         account=os.getenv("SNOWFLAKE_ACCOUNT"),
@@ -32,17 +32,15 @@ def get_connection():
         role=os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
         schema="STAGING",
     )
-
-
-@st.cache_data(ttl=86400)
-def load_data():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM STAGING.FCT_DEALS")
-    deals = pd.DataFrame(cur.fetchall(), columns=[d[0] for d in cur.description])
-    cur.execute("SELECT * FROM RAW.TARGETS")
-    targets = pd.DataFrame(cur.fetchall(), columns=[d[0] for d in cur.description])
-    cur.close()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM STAGING.FCT_DEALS")
+        deals = pd.DataFrame(cur.fetchall(), columns=[d[0] for d in cur.description])
+        cur.execute("SELECT * FROM RAW.TARGETS")
+        targets = pd.DataFrame(cur.fetchall(), columns=[d[0] for d in cur.description])
+        cur.close()
+    finally:
+        conn.close()
     return deals, targets
 
 
