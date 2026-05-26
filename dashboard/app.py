@@ -87,12 +87,15 @@ closed_won_revenue_fmt = fmt(_won["DEAL_AMOUNT"].sum())
 win_rate_fmt           = f"{len(_won) / len(_terminal) * 100:.1f}%" if len(_terminal) > 0 else "0.0%"
 open_pipeline_fmt      = fmt(_open["DEAL_AMOUNT"].sum())
 as_of_date             = datetime.now(timezone.utc).strftime("%B %d, %Y")
+_annual_target_full    = pd.to_numeric(targets["ANNUAL_TARGET"], errors="coerce").fillna(0).sum()
+_months_in_data        = deals_raw["CLOSE_MONTH"].dropna().nunique()
+_prorated_target       = _annual_target_full * (_months_in_data / 12)
 
 st.markdown(f"""
 <div style="background-color: #f0f7ff; border-left: 4px solid #0096D6; padding: 14px 20px; border-radius: 6px; margin-bottom: 24px;">
     <p style="margin: 0; font-size: 15px; color: #1a1a1a;">
     Tracking <strong>{total_deals} deals</strong> across <strong>Enterprise, Public Sector, and SMB</strong> teams —
-    <strong>{closed_won_revenue_fmt}</strong> closed won against a combined annual target of <strong>$9.3M</strong>.
+    <strong>{closed_won_revenue_fmt}</strong> closed won against a {_months_in_data}-month prorated target of <strong>{fmt(_prorated_target)}</strong>.
     Win rate sits at <strong>{win_rate_fmt}</strong> with <strong>{open_pipeline_fmt}</strong> in active pipeline across 9 sales reps.
     </p>
     <p style="margin: 8px 0 0 0; font-size: 12px; color: #666;">
@@ -409,7 +412,9 @@ st.markdown("---")
 # ─────────────────────────────────────────────────────────────────────────────
 st.subheader("Revenue Forecast")
 
-ANNUAL_TARGET = pd.to_numeric(targets["ANNUAL_TARGET"], errors="coerce").fillna(0).sum()
+ANNUAL_TARGET   = _annual_target_full
+prorated_target = _prorated_target
+months_in_data  = _months_in_data
 
 _sf = deals[deals["STAGE_PROBABILITY"] > 0].copy()
 _sf["EXPECTED"] = _sf["DEAL_AMOUNT"] * _sf["STAGE_PROBABILITY"]
@@ -427,8 +432,7 @@ stage_color_map = {
 }
 
 closed_won_rev = deals[deals["ORIGINAL_STAGE"] == "Closed Won"]["DEAL_AMOUNT"].sum()
-pct_of_target  = closed_won_rev / ANNUAL_TARGET * 100 if ANNUAL_TARGET > 0 else 0
-target_fmt     = fmt(ANNUAL_TARGET)
+pct_of_target  = closed_won_rev / prorated_target * 100 if prorated_target > 0 else 0
 
 fc_left, fc_right = st.columns(2)
 
@@ -459,7 +463,7 @@ with fc_right:
         mode="gauge+number",
         value=pct_of_target,
         number={"suffix": "%", "font": {"size": 44}},
-        title={"text": f"Target Attainment<br><span style='font-size:14px;color:gray'>{fmt(closed_won_rev)} of {target_fmt}</span>"},
+        title={"text": f"Target Attainment<br><span style='font-size:14px;color:gray'>{fmt(closed_won_rev)} of {fmt(prorated_target)} ({months_in_data}-month target)</span>"},
         gauge={
             "axis": {"range": [0, 100], "ticksuffix": "%"},
             "bar":  {"color": gauge_color},
