@@ -151,7 +151,7 @@ rep_perf["PCT"] = rep_perf.apply(
 col_left, col_right = st.columns(2)
 
 with col_left:
-    st.markdown("**Sales Team vs Annual Target**")
+    st.markdown("**Sales Team vs Target**")
     fig_team = go.Figure()
     fig_team.add_trace(go.Bar(
         y=team_perf["SALES_TEAM"], x=team_perf["TEAM_ANNUAL_TARGET"],
@@ -160,18 +160,32 @@ with col_left:
     fig_team.add_trace(go.Bar(
         y=team_perf["SALES_TEAM"], x=team_perf["ACTUAL"],
         name="Actual", orientation="h", marker_color=HPE_BLUE,
-        customdata=team_perf[["PCT"]].values,
-        texttemplate="$%{x:,.0f} (%{customdata[0]:.1f}%)",
-        textposition="outside",
     ))
     x_max = float(team_perf["TEAM_ANNUAL_TARGET"].max()) if len(team_perf) > 0 else 1
     fig_team.update_layout(
         barmode="overlay", height=300,
-        margin=dict(l=0, r=150, t=10, b=0),
+        margin=dict(l=0, r=20, t=10, b=0),
         legend=dict(orientation="h", y=-0.25),
-        xaxis=dict(title="Revenue ($)", range=[0, x_max * 1.3]),
+        xaxis=dict(title="Revenue ($)", range=[0, x_max * 1.2]),
     )
     st.plotly_chart(fig_team, use_container_width=True)
+
+    summary = team_perf[["SALES_TEAM", "ACTUAL", "TEAM_ANNUAL_TARGET", "PCT"]].copy()
+    summary.columns = ["Team", "Actual Revenue", "Target", "% Attained"]
+    summary["Actual Revenue"] = summary["Actual Revenue"].apply(lambda x: f"${x/1e6:.1f}M")
+    summary["Target"] = summary["Target"].apply(lambda x: f"${x/1e6:.1f}M")
+
+    def color_pct(val):
+        color = "green" if val >= 50 else "red"
+        return f"color: {color}"
+
+    styled_summary = (
+        summary.style
+        .applymap(color_pct, subset=["% Attained"])
+        .format({"% Attained": "{:.1f}%"})
+        .hide(axis="index")
+    )
+    st.dataframe(styled_summary, use_container_width=True, hide_index=True)
 
 with col_right:
     st.markdown("**Rep Performance vs Annual Target**")
