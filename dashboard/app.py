@@ -138,8 +138,8 @@ with st.expander("ℹ️ How are these calculated?"):
         st.caption("Sum of deal amounts for all Closed Won deals.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE = 'Closed Won'`")
         st.markdown("**Open Pipeline Value**")
         st.caption("Total value of deals still actively in the pipeline — excludes Closed Won, Closed Lost, and Gone Cold.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')`")
-        st.markdown("**Weighted Open Pipeline**")
-        st.caption("Probability-weighted sum of all open deals. The gap between this and Open Pipeline Value shows how much the pipeline is discounted by stage.\n\n`SUM(DEAL_AMOUNT * STAGE_PROBABILITY) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')`")
+        st.markdown("**Weighted Forecast**")
+        st.caption("A smarter version of Open Pipeline — instead of counting every deal at full value, each deal is discounted by how likely it is to close based on its stage. A $500K deal at Verbal Confirmation (80% likely) counts as $400K. A $500K deal at Qualified (40% likely) counts as $200K. The gap between Open Pipeline Value and Weighted Forecast shows how much risk is in your pipeline.\n\n`SUM(DEAL_AMOUNT * STAGE_PROBABILITY) WHERE stage is open`")
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
