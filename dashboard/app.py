@@ -149,13 +149,14 @@ with col_left:
     fig_team.add_trace(go.Bar(
         y=team_perf["SALES_TEAM"], x=team_perf["ACTUAL"],
         name="Actual", orientation="h", marker_color=HPE_BLUE,
-        text=[f"${v:,.0f} ({p:.1f}%)" for v, p in zip(team_perf["ACTUAL"], team_perf["PCT"])],
+        customdata=team_perf[["PCT"]].values,
+        texttemplate="$%{x:,.0f} (%{customdata[0]:.1f}%)",
         textposition="outside",
     ))
     x_max = float(team_perf["TEAM_ANNUAL_TARGET"].max()) if len(team_perf) > 0 else 1
     fig_team.update_layout(
         barmode="overlay", height=300,
-        margin=dict(l=0, r=20, t=10, b=0),
+        margin=dict(l=0, r=150, t=10, b=0),
         legend=dict(orientation="h", y=-0.25),
         xaxis=dict(title="Revenue ($)", range=[0, x_max * 1.3]),
     )
@@ -163,9 +164,10 @@ with col_left:
 
 with col_right:
     st.markdown("**Rep Performance vs Annual Target**")
-    sort_by = st.radio("Sort by", ["Total Closed Won", "% of Target"], horizontal=True, key="rep_sort")
-    sort_col = "ACTUAL" if sort_by == "Total Closed Won" else "PCT"
-    sorted_reps = rep_perf.sort_values(sort_col, ascending=False)
+    sorted_reps = rep_perf.sort_values("ACTUAL", ascending=False)
+
+    def highlight_won(s):
+        return ["background-color: #d4edda" if s["Status"] == "Closed Won" else "" for _ in s]
 
     for _, row in sorted_reps.iterrows():
         pct_clamped = min(float(row["PCT"]) / 100, 1.0)
@@ -178,14 +180,16 @@ with col_right:
             st.markdown(f"<div style='padding-top:22px; font-size:13px'>${row['ACTUAL']:,.0f} &nbsp;·&nbsp; {row['PCT']:.1f}%</div>",
                         unsafe_allow_html=True)
         rep_name = row["OPPORTUNITY_OWNER"]
-        rep_won = deals[
-            (deals["OPPORTUNITY_OWNER"] == rep_name) &
-            (deals["ORIGINAL_STAGE"] == "Closed Won")
-        ][["DEAL_NAME", "ACCOUNT_NAME", "DEAL_AMOUNT", "CLOSE_DATE"]].copy()
-        rep_won["DEAL_AMOUNT"] = rep_won["DEAL_AMOUNT"].apply(lambda x: f"${x:,.0f}")
-        rep_won.columns = ["Opportunity", "Account", "Amount", "Close Date"]
-        with st.expander(f"View {rep_name}'s closed deals ({len(rep_won)})"):
-            st.dataframe(rep_won.sort_values("Close Date"), use_container_width=True, hide_index=True)
+        rep_deals = deals[deals["OPPORTUNITY_OWNER"] == rep_name].copy()
+        rep_deals["Status"] = rep_deals["ORIGINAL_STAGE"].apply(
+            lambda x: x if x in CLOSED_STAGES else "Open"
+        )
+        rep_display = rep_deals[["DEAL_NAME", "ACCOUNT_NAME", "DEAL_AMOUNT", "CLOSE_DATE", "Status"]].copy()
+        rep_display["DEAL_AMOUNT"] = rep_display["DEAL_AMOUNT"].apply(lambda x: f"${x:,.0f}")
+        rep_display.columns = ["Opportunity", "Account", "Amount", "Close Date", "Status"]
+        styled = rep_display.style.apply(highlight_won, axis=1)
+        with st.popover(f"View {rep_name}'s deals ({len(rep_deals)})"):
+            st.dataframe(styled, use_container_width=True, hide_index=True)
 
 st.markdown("---")
 
