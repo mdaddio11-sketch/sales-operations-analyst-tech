@@ -232,6 +232,12 @@ with col_right:
         "border-left: 3px solid #A8A9AD; background: #fafafa",
         "border-left: 3px solid #CD7F32; background: #fdf8f4",
     ]
+    MEDALS = ["🥇", "🥈", "🥉"]
+
+    st.markdown(
+        "<style>[data-testid='stProgress'] > div { background-color: #C0C0C0 !important; }</style>",
+        unsafe_allow_html=True,
+    )
 
     def highlight_won(s):
         return ["background-color: #d4edda" if s["Status"] == "Closed Won" else "" for _ in s]
@@ -243,7 +249,7 @@ with col_right:
             if rank < 3:
                 st.markdown(
                     f"<div style='{MEDAL_STYLES[rank]}; padding: 8px 12px; border-radius: 4px; margin-bottom: 4px;'>"
-                    f"<strong>{row['OPPORTUNITY_OWNER']}</strong> "
+                    f"{MEDALS[rank]} <strong>{row['OPPORTUNITY_OWNER']}</strong> "
                     f"<small style='color:gray'>({row['SALES_TEAM']})</small></div>",
                     unsafe_allow_html=True,
                 )
