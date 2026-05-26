@@ -105,6 +105,32 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 st.markdown("---")
 
+with st.expander("📖 How to use this dashboard", expanded=False):
+    st.markdown("""
+**Filters (sidebar)**
+Click the **>** arrow at the top left of the page to open the filter panel. You can filter all charts and metrics by:
+- **Sales Team** — View Enterprise, Public Sector, or SMB in isolation, or keep All to see the full picture
+- **Opportunity Owner** — Drill into a single Account Executive's pipeline and performance
+- **Fiscal Period** — Focus on a specific quarter (Q1–Q4)
+
+All metrics, charts, and tables update instantly when filters are applied. To reset, set all filters back to "All".
+
+**Sections**
+- **Pipeline Overview** — Top-line KPIs: total deals, revenue booked, win rate, open pipeline, and weighted forecast
+- **Target vs Actuals** — How each sales team and individual AE is tracking against their annual revenue target
+- **Account Executive Leaderboard** — Ranked AE performance with expandable deal details. Click any AE's dropdown to see all their deals
+- **Pipeline Health** — Deal distribution across stage groups by team — use this to spot pipeline imbalance
+- **Revenue Forecast** — Expected revenue by stage with a target attainment gauge
+
+**Tips**
+- Hover over any chart element to see exact values
+- Click the ℹ️ expanders throughout the dashboard for detailed explanations of how each metric is calculated
+- The leaderboard shows 🥇🥈🥉 for the top 3 AEs by closed won revenue
+- Charts are interactive — you can zoom, pan, and download them using the toolbar that appears on hover
+""")
+
+st.markdown("---")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SECTION 1 — Pipeline Overview
 # ─────────────────────────────────────────────────────────────────────────────
