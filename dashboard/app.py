@@ -274,6 +274,19 @@ with col_right:
     fig_open.update_layout(margin=dict(l=0, r=150, t=10, b=0))
     st.plotly_chart(fig_open, width='stretch')
 
+with st.expander("ℹ️ What do these stage groups mean?"):
+    eg1, eg2 = st.columns(2)
+    with eg1:
+        st.markdown("**Early Stage (blue)**")
+        st.caption("Deals in the early qualification and proposal phase. The rep has engaged the prospect but no commitment has been made. Includes: Qualified, Proposal/Quote, Priority. High volume here can indicate pipeline inflation — lots of deals added but not yet progressing.")
+        st.markdown("**Closed Won (green)**")
+        st.caption("Deals that have been fully closed and revenue booked. This is the only stage that counts toward actual revenue and target attainment.")
+    with eg2:
+        st.markdown("**Late Stage (amber)**")
+        st.caption("Deals with strong buying signals where a close is expected soon. The prospect has verbally indicated intent or a close date is confirmed. Includes: Verbal Confirmation, Expected Close, Backlog. Healthy pipelines have a good ratio of late-stage to early-stage deals.")
+        st.markdown("**Lost / Gone Cold (red)**")
+        st.caption("Deals that did not close — either explicitly lost to a competitor or prospect went silent. High numbers here relative to Closed Won indicate a low win rate and should trigger a review of qualification criteria.")
+
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
