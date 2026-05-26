@@ -428,8 +428,10 @@ stage_color_map = {
     for _, row in stage_forecast.iterrows()
 }
 
-total_expected = stage_forecast["EXPECTED"].sum()
-active_deals   = int(stage_forecast["DEALS"].sum())
+booked_rev  = deals[deals["ORIGINAL_STAGE"] == "Closed Won"]["DEAL_AMOUNT"].sum()
+_open_pipe  = deals[~deals["ORIGINAL_STAGE"].isin(CLOSED_STAGES)].copy()
+likely_rev  = (_open_pipe["DEAL_AMOUNT"] * _open_pipe["STAGE_PROBABILITY"]).sum()
+likely_fmt  = fmt(likely_rev)
 
 fc_left, fc_right = st.columns(2)
 
@@ -454,9 +456,9 @@ with fc_left:
     st.plotly_chart(fig_forecast, width='stretch')
 
 with fc_right:
-    st.markdown("**Total Expected Revenue**")
-    st.metric("", fmt(total_expected), label_visibility="collapsed")
-    st.caption(f"Probability-weighted sum across {active_deals} deals with non-zero stage probability")
+    st.metric("Booked Revenue", fmt(booked_rev), "Closed Won deals")
+    st.metric("Likely Case", likely_fmt, "Probability-weighted open pipeline")
+    st.caption(f"Likely Case represents an additional {likely_fmt} in expected revenue if open deals close at their stage probability.")
 
 with st.expander("ℹ️ How is Expected Revenue calculated?"):
     st.caption("Expected Revenue weights each deal by its stage probability to produce a risk-adjusted forecast. A Closed Won deal counts 100%, a Verbal Confirmation counts 80%, and so on. This gives a more realistic revenue forecast than counting all open pipeline at face value.")
