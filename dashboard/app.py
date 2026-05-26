@@ -412,9 +412,6 @@ st.markdown("---")
 # ─────────────────────────────────────────────────────────────────────────────
 st.subheader("Revenue Forecast")
 
-ANNUAL_TARGET   = _annual_target_full
-prorated_target = _prorated_target
-months_in_data  = _months_in_data
 
 _sf = deals[deals["STAGE_PROBABILITY"] > 0].copy()
 _sf["EXPECTED"] = _sf["DEAL_AMOUNT"] * _sf["STAGE_PROBABILITY"]
@@ -431,8 +428,8 @@ stage_color_map = {
     for _, row in stage_forecast.iterrows()
 }
 
-closed_won_rev = deals[deals["ORIGINAL_STAGE"] == "Closed Won"]["DEAL_AMOUNT"].sum()
-pct_of_target  = closed_won_rev / prorated_target * 100 if prorated_target > 0 else 0
+total_expected = stage_forecast["EXPECTED"].sum()
+active_deals   = int(stage_forecast["DEALS"].sum())
 
 fc_left, fc_right = st.columns(2)
 
@@ -457,26 +454,9 @@ with fc_left:
     st.plotly_chart(fig_forecast, width='stretch')
 
 with fc_right:
-    st.markdown("**Target Attainment**")
-    gauge_color = "#2ecc71" if pct_of_target >= 70 else ("#f39c12" if pct_of_target >= 50 else "#e74c3c")
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=pct_of_target,
-        number={"suffix": "%", "font": {"size": 44}},
-        title={"text": f"Target Attainment<br><span style='font-size:14px;color:gray'>{fmt(closed_won_rev)} of {fmt(prorated_target)} ({months_in_data}-month target)</span>"},
-        gauge={
-            "axis": {"range": [0, 100], "ticksuffix": "%"},
-            "bar":  {"color": gauge_color},
-            "steps": [
-                {"range": [0,  50], "color": "#fde8e8"},
-                {"range": [50, 70], "color": "#fef9e7"},
-                {"range": [70, 100], "color": "#eafaf1"},
-            ],
-            "threshold": {"line": {"color": "black", "width": 2}, "thickness": 0.75, "value": 100},
-        },
-    ))
-    fig_gauge.update_layout(height=350, margin=dict(l=20, r=20, t=80, b=20))
-    st.plotly_chart(fig_gauge, width='stretch')
+    st.markdown("**Total Expected Revenue**")
+    st.metric("", fmt(total_expected), label_visibility="collapsed")
+    st.caption(f"Probability-weighted sum across {active_deals} deals with non-zero stage probability")
 
 with st.expander("ℹ️ How is Expected Revenue calculated?"):
     st.caption("Expected Revenue weights each deal by its stage probability to produce a risk-adjusted forecast. A Closed Won deal counts 100%, a Verbal Confirmation counts 80%, and so on. This gives a more realistic revenue forecast than counting all open pipeline at face value.")
