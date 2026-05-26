@@ -117,14 +117,14 @@ open_deals = deals[~deals["ORIGINAL_STAGE"].isin(CLOSED_STAGES)]
 won_revenue   = won_deals["DEAL_AMOUNT"].sum()
 win_rate      = len(won_deals) / len(terminal) * 100 if len(terminal) > 0 else 0
 open_pipeline = open_deals["DEAL_AMOUNT"].sum()
-expected_rev  = (deals["DEAL_AMOUNT"] * deals["STAGE_PROBABILITY"]).sum()
+expected_rev  = (open_deals["DEAL_AMOUNT"] * open_deals["STAGE_PROBABILITY"]).sum()
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Total Deals", f"{len(deals):,}")
 c2.metric("Closed Won Revenue", fmt(won_revenue))
 c3.metric("Win Rate", f"{win_rate:.1f}%")
 c4.metric("Open Pipeline Value", fmt(open_pipeline))
-c5.metric("Expected Revenue", fmt(expected_rev))
+c5.metric("Weighted Forecast", fmt(expected_rev))
 
 with st.expander("ℹ️ How are these calculated?"):
     ec1, ec2 = st.columns(2)
@@ -138,8 +138,8 @@ with st.expander("ℹ️ How are these calculated?"):
         st.caption("Sum of deal amounts for all Closed Won deals.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE = 'Closed Won'`")
         st.markdown("**Open Pipeline Value**")
         st.caption("Total value of deals still actively in the pipeline — excludes Closed Won, Closed Lost, and Gone Cold.\n\n`SUM(DEAL_AMOUNT) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')`")
-        st.markdown("**Expected Revenue**")
-        st.caption("Risk-adjusted forecast: each deal's amount multiplied by its stage probability, summed across all deals including Closed Won.\n\n`SUM(DEAL_AMOUNT * STAGE_PROBABILITY)`")
+        st.markdown("**Weighted Forecast**")
+        st.caption("Probability-weighted sum of all open deals. The gap between this and Open Pipeline Value shows how much the pipeline is discounted by stage.\n\n`SUM(DEAL_AMOUNT * STAGE_PROBABILITY) WHERE ORIGINAL_STAGE NOT IN ('Closed Won', 'Closed Lost', 'Gone Cold')`")
 st.markdown("---")
 
 # ─────────────────────────────────────────────────────────────────────────────
