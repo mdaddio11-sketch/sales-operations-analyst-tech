@@ -296,23 +296,39 @@ with col_left:
     st.plotly_chart(fig_stack, width='stretch')
 
 with col_right:
-    st.markdown("**Open Pipeline Value by Stage**")
+    st.markdown("**Open Pipeline by Stage**")
+    OPEN_STAGE_COLORS = {
+        "Verbal Confirmation": "#1a5276",
+        "Expected Close":      "#1f618d",
+        "Priority":            "#2874a6",
+        "Qualified":           "#2e86c1",
+        "Proposal / Quote":    "#5dade2",
+        "Backlog":             "#aed6f1",
+    }
     open_by_stage = (
         deals[deals["ORIGINAL_STAGE"].isin(OPEN_STAGES)]
-        .groupby("ORIGINAL_STAGE")["DEAL_AMOUNT"].sum().reset_index()
+        .groupby("ORIGINAL_STAGE")
+        .agg(DEAL_AMOUNT=("DEAL_AMOUNT", "sum"), DEAL_COUNT=("DEAL_AMOUNT", "count"))
+        .reset_index()
         .sort_values("DEAL_AMOUNT", ascending=True)
     )
     fig_open = px.bar(
         open_by_stage, y="ORIGINAL_STAGE", x="DEAL_AMOUNT",
         orientation="h", height=380,
+        color="ORIGINAL_STAGE",
+        color_discrete_map=OPEN_STAGE_COLORS,
         labels={"DEAL_AMOUNT": "Pipeline Value ($)", "ORIGINAL_STAGE": "Stage"},
     )
     fig_open.update_traces(
-        marker_color=HPE_BLUE,
+        customdata=open_by_stage[["DEAL_COUNT"]].values,
         texttemplate="$%{x:,.0f}",
         textposition="outside",
+        hovertemplate="%{y}: %{customdata[0]} deals — $%{x:,.0f}<extra></extra>",
     )
-    fig_open.update_layout(margin=dict(l=0, r=150, t=10, b=0))
+    fig_open.update_layout(
+        showlegend=False,
+        margin=dict(l=0, r=200, t=10, b=0),
+    )
     st.plotly_chart(fig_open, width='stretch')
 
 with st.expander("ℹ️ What do these stage groups mean?"):
