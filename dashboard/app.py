@@ -409,7 +409,7 @@ st.markdown("---")
 # ─────────────────────────────────────────────────────────────────────────────
 st.subheader("Revenue Forecast")
 
-ANNUAL_TARGET = 9_300_000
+ANNUAL_TARGET = pd.to_numeric(targets["ANNUAL_TARGET"], errors="coerce").fillna(0).sum()
 
 FORECAST_GROUPS = [
     ("Closed Won",      ["Closed Won"]),
@@ -436,7 +436,9 @@ for label, stages in FORECAST_GROUPS:
     })
 forecast_df    = pd.DataFrame(forecast_rows)
 expected_total = forecast_df["Expected Revenue"].sum()
-pct_of_target  = expected_total / ANNUAL_TARGET * 100 if ANNUAL_TARGET > 0 else 0
+closed_won_rev = deals[deals["ORIGINAL_STAGE"] == "Closed Won"]["DEAL_AMOUNT"].sum()
+pct_of_target  = closed_won_rev / ANNUAL_TARGET * 100 if ANNUAL_TARGET > 0 else 0
+target_fmt     = fmt(ANNUAL_TARGET)
 
 fc_left, fc_right = st.columns(2)
 
@@ -461,13 +463,13 @@ with fc_left:
     st.plotly_chart(fig_forecast, width='stretch')
 
 with fc_right:
-    st.markdown("**Forecast vs Annual Target**")
+    st.markdown("**Target Attainment**")
     gauge_color = "#2ecc71" if pct_of_target >= 70 else ("#f39c12" if pct_of_target >= 50 else "#e74c3c")
     fig_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
         value=pct_of_target,
         number={"suffix": "%", "font": {"size": 44}},
-        title={"text": f"Forecast vs Target<br><span style='font-size:14px;color:gray'>{fmt(expected_total)} of $9.3M</span>"},
+        title={"text": f"Target Attainment<br><span style='font-size:14px;color:gray'>{fmt(closed_won_rev)} of {target_fmt}</span>"},
         gauge={
             "axis": {"range": [0, 100], "ticksuffix": "%"},
             "bar":  {"color": gauge_color},
